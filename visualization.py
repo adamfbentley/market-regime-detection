@@ -22,7 +22,8 @@ def plot_wasserstein_timeline(distance_df, anomalies=True, title="Market Regime 
             color='steelblue', linewidth=1.5, label='W₁ distance')
     
     if anomalies and 'anomaly' in distance_df.columns:
-        anomaly_dates = distance_df[distance_df['anomaly']].index
+        anomaly_mask = distance_df['anomaly'].fillna(False).astype(bool)
+        anomaly_dates = distance_df[anomaly_mask].index
         ax.scatter(anomaly_dates, 
                   distance_df.loc[anomaly_dates, 'wasserstein'],
                   color='red', s=50, zorder=5, label='Anomaly', alpha=0.7)
@@ -233,7 +234,8 @@ def plot_price_with_regimes(prices, distance_df, title="Price with Regime Overla
     ax.plot(prices.index, prices, color='black', linewidth=1.5, label='Price')
     
     if 'anomaly' in distance_df.columns:
-        anomaly_dates = distance_df[distance_df['anomaly']].index
+        anomaly_mask = distance_df['anomaly'].fillna(False).astype(bool)
+        anomaly_dates = distance_df[anomaly_mask].index
         # Highlight anomalous periods
         for date in anomaly_dates:
             ax.axvspan(date, date + pd.Timedelta(days=1), 
@@ -269,51 +271,65 @@ def plot_price_with_regimes(prices, distance_df, title="Price with Regime Overla
 
 if __name__ == "__main__":
     import yfinance as yf
+    import os
     from observables import observable_map
     from regime_detector import RegimeDetector
     
-    print("Generating visualizations...")
+    os.makedirs('plots', exist_ok=True)
+    
+    print("="*60)
+    print("MARKET REGIME DETECTION - GENERATING PLOTS")
+    print("="*60)
     
     # Data
-    spy = yf.download('SPY', start='2019-01-01', end='2024-01-01', progress=False)
+    print("\nFetching SPY data...")
+    spy = yf.download('SPY', start='2019-01-01', end='2024-01-01', progress=False, auto_adjust=True)
     
     # Train detector
+    print("Training regime detector...")
     detector = RegimeDetector(window=60, reference_period=252)
-    detector.fit(spy['Adj Close'], spy['Volume'], end_date='2021-12-31')
+    detector.fit(spy['Close'], spy['Volume'], end_date='2021-12-31')
     
     # Generate plots
+    print("\n1. Wasserstein Distance Timeline...")
     fig1 = plot_wasserstein_timeline(
         detector.distance_df, 
-        title="SPY Regime Detection (2019-2021)"
+        title="SPY Regime Detection: Wasserstein Distance from Reference (2019-2021)"
     )
-    plt.savefig('regime_timeline.png', dpi=150, bbox_inches='tight')
-    print("✓ Saved regime_timeline.png")
+    plt.savefig('plots/regime_timeline.png', dpi=150, bbox_inches='tight')
+    print("   ✓ Saved plots/regime_timeline.png")
     
+    print("2. Price with Regime Overlay...")
     fig2 = plot_price_with_regimes(
-        spy['Adj Close'].loc[:'2021-12-31'],
+        spy['Close'].loc[:'2021-12-31'],
         detector.distance_df,
-        title="SPY Price with Detected Regimes"
+        title="SPY Price with Detected Regime Anomalies"
     )
-    plt.savefig('price_regimes.png', dpi=150, bbox_inches='tight')
-    print("✓ Saved price_regimes.png")
+    plt.savefig('plots/price_regimes.png', dpi=150, bbox_inches='tight')
+    print("   ✓ Saved plots/price_regimes.png")
     
     # Feature space
-    features = observable_map(spy['Adj Close'], spy['Volume'], window=60)
-    anomalies = detector.distance_df[detector.distance_df['anomaly']].index
+    print("3. Observable Feature Space...")
+    features = observable_map(spy['Close'], spy['Volume'], window=60)
+    anomaly_mask = detector.distance_df['anomaly'].fillna(False).astype(bool)
+    anomalies = detector.distance_df[anomaly_mask].index
     
     fig3 = plot_feature_space(
         features.loc[:'2021-12-31'],
         anomalies=anomalies,
         dims=(0, 1),
-        title="Observable Space (Volatility vs Skewness)"
+        title="Observable Space: Normal vs Anomalous Regimes"
     )
-    plt.savefig('feature_space.png', dpi=150, bbox_inches='tight')
-    print("✓ Saved feature_space.png")
+    plt.savefig('plots/feature_space.png', dpi=150, bbox_inches='tight')
+    print("   ✓ Saved plots/feature_space.png")
     
     # PCA
+    print("4. PCA Projection...")
     fig4 = plot_regime_pca(features.loc[:'2021-12-31'], anomalies=anomalies)
-    plt.savefig('pca_projection.png', dpi=150, bbox_inches='tight')
-    print("✓ Saved pca_projection.png")
+    plt.savefig('plots/pca_projection.png', dpi=150, bbox_inches='tight')
+    print("   ✓ Saved plots/pca_projection.png")
     
-    print("\n✓ All visualizations complete.")
-    plt.show()
+    print("\n" + "="*60)
+    print("✓ All market-regime-detection plots generated!")
+    print("="*60)
+    plt.close('all')
