@@ -2,6 +2,8 @@
 
 Detects market regime changes using Wasserstein distance to measure distribution shifts in financial time series.
 
+**Background:** This is a direct attempt to apply the mathematical framework from my physics research ([ml-universality-classification](https://github.com/adamfbentley/ml-universality-classification)) to quantitative finance. The physics work uses Wasserstein distance to distinguish stochastic universality classes—the same machinery applied here to detect when market behavior shifts. Whether financial "regimes" have the same mathematical structure as physics universality classes is an open question; this project explores the translation.
+
 ## What It Does
 
 1. Computes rolling statistical features (volatility, skewness, kurtosis, autocorrelation) from price data
